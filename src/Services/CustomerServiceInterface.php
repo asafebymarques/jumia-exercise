@@ -8,5 +8,5 @@ interface CustomerServiceInterface
 {
     public function getCustomers(string $page): array;
 
-    public function getCustomersWithCriteria(array $filterCriteria, string $page): array;
+    public function getCustomersWithCriteria(string $countryCode, string $state, string $page): array;
 }

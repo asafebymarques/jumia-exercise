@@ -20,8 +20,8 @@ class Customer
 
         $sql = 'SELECT phone FROM customer LIMIT :offset, :limit';
         $sql = $pdo->prepare($sql);
-        $sql->bindValue('offset', $offset);
-        $sql->bindValue('limit', self::LIMIT);
+        $sql->bindValue(':offset', $offset);
+        $sql->bindValue(':limit', self::LIMIT);
         $sql->execute();
 
         while ($row = $sql->fetch(\PDO::FETCH_ASSOC)) {
@@ -31,35 +31,80 @@ class Customer
         return $customers;
     }
 
-    public static function getCustomerPhoneByCriteria(array $searchCriteria, string $page): array
+    public static function getCustomerByState(string $state, string $page): array 
     {
-        $isFilteredByCode = false;
-
         $customers = [];
 
         $pdo = (new SQLiteConnection())->connect();
 
-        $queryParts[] = 'SELECT * FROM customer';
+        $offset = ($page - 1) * self::LIMIT;
+        $stateRegex = "/".implode('|', array_column(CountryHelper::COUNTRIES_LIST, 'regex'))."/";
 
-        if ($searchCriteria['countryCode']) {
-            $isFilteredByCode = true;
-            $queryParts[] = "WHERE regexp_like('/\({$searchCriteria['countryCode']}\)/', phone)";
+
+        if($state === 'nok') {
+            $sql = 'SELECT phone FROM customer WHERE NOT regexp_like(:state, phone) LIMIT :offset, :limit';
+
+        } else {
+            $sql = 'SELECT phone FROM customer WHERE regexp_like(:state, phone) LIMIT :offset, :limit';
+        }
+        $sql = $pdo->prepare($sql);
+        $sql->bindValue(':state', $stateRegex);
+        $sql->bindValue(':offset', $offset);
+        $sql->bindValue(':limit', self::LIMIT);
+        $sql->execute();
+
+        while ($row = $sql->fetch(\PDO::FETCH_ASSOC)) {
+            $customers[] = $row['phone'];
         }
 
-        if ($searchCriteria['state']) {
-            $queryParts[] = $isFilteredByCode ? 'AND' : 'WHERE';
-            $regex = $isFilteredByCode ? CountryHelper::COUNTRIES_LIST[$searchCriteria['countryCode']]['regex']
-                : implode('|', array_column(CountryHelper::COUNTRIES_LIST, 'regex'));
+        return $customers;
+    }
 
-            $queryParts[] = $searchCriteria['state'] === 'nok' ? 'NOT' : '';
-            $queryParts[] = "regexp_like('/{$regex}/', phone)";
-        }
+    public static function getCustomerByCountryCode(string $countryCode, string $page): array
+    {
+        $customers = [];
+
+        $pdo = (new SQLiteConnection())->connect();
 
         $offset = ($page - 1) * self::LIMIT;
-        $queryParts[] = ' LIMIT '.$offset.','.self::LIMIT;
+        $countryRegex = "/\($countryCode\)/";
 
-        $sql = implode(' ', $queryParts);
+        $sql = 'SELECT phone FROM customer WHERE regexp_like(:countryCode, phone) LIMIT :offset, :limit';
         $sql = $pdo->prepare($sql);
+        $sql->bindValue(':countryCode', $countryRegex);
+        $sql->bindValue(':offset', $offset);
+        $sql->bindValue(':limit', self::LIMIT);
+        $sql->execute();
+
+        while ($row = $sql->fetch(\PDO::FETCH_ASSOC)) {
+            $customers[] = $row['phone'];
+        }
+
+        return $customers;
+    }
+
+    public static function getCustomerByCountryCodeAndState(string $countryCode, string $state, string $page): array
+    {
+        $customers = [];
+
+        $pdo = (new SQLiteConnection())->connect();
+
+        $offset = ($page - 1) * self::LIMIT;
+        $countryRegex = "/\($countryCode\)/";
+        $stateRegex = "/".CountryHelper::COUNTRIES_LIST[$countryCode]['regex']."/";
+
+
+        if($state === 'nok') {
+            $sql = 'SELECT phone FROM customer WHERE regexp_like(:countryCode, phone) AND NOT regexp_like(:state, phone) LIMIT :offset, :limit';
+
+        } else {
+            $sql = 'SELECT phone FROM customer WHERE regexp_like(:countryCode, phone) AND regexp_like(:state, phone) LIMIT :offset, :limit';
+        }
+        $sql = $pdo->prepare($sql);
+        $sql->bindValue(':countryCode', $countryRegex);
+        $sql->bindValue(':state', $stateRegex);
+        $sql->bindValue(':offset', $offset);
+        $sql->bindValue(':limit', self::LIMIT);
         $sql->execute();
 
         while ($row = $sql->fetch(\PDO::FETCH_ASSOC)) {

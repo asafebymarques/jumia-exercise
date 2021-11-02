@@ -37,11 +37,20 @@ class CustomerService implements CustomerServiceInterface
         return $customers;
     }
 
-    public function getCustomersWithCriteria(array $filterCriteria, string $page): array
+    public function getCustomersWithCriteria(string $countryCode, string $state, string $page): array
     {
         $customers = [];
-
-        $phones = $this->customer::getCustomerPhoneByCriteria($filterCriteria, $page);
+        $phones = [];
+        
+        if(!empty($countryCode) && !empty($state)){
+            $phones = $this->customer::getCustomerByCountryCodeAndState($countryCode, $state, $page);
+        } else if (!empty($countryCode)) {
+            $phones = $this->customer::getCustomerByCountryCode($countryCode, $page);
+        } else if (!empty($state)) {
+            $phones = $this->customer::getCustomerByState($state, $page);
+        } else {
+            $phones = $this->customer::getCustomersPhones($page);
+        }
 
         foreach ($phones as $value) {
             $phone = new Phone($value);
